@@ -1,22 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BuildTrack NYC — Construction Monitor</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0A0A0E; }
-#root { min-height: 100vh; }
-</style>
-</head>
-<body>
-<div id="root"></div>
-<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
-<script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── DATA & CONSTANTS ───────────────────────────────────────────────────────
 const TRADES = ["Plumbing","Carpentry","Windows","Electrical","Painting","Heating","Cooling","Tiling","Minor Repairs","Major Repairs"];
@@ -1127,7 +1109,7 @@ const BulkNotices = ({ units }) => {
 };
 
 // ─── MAIN APP ───────────────────────────────────────────────────────────────
-function App() {
+export default function App() {
   const [unitFormat, setUnitFormat] = useState("alpha");
   const [floorCount, setFloorCount] = useState(5);
   const [perFloor, setPerFloor] = useState(8);
@@ -1476,10 +1458,3 @@ function App() {
     </div>
   );
 }
-
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
-</script>
-</body>
-</html>
