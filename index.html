@@ -3,12 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BuildTrack NYC — Construction Monitor</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0A0A0E; }
-#root { min-height: 100vh; }
-</style>
+<title>BuildTrack NYC</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0A0A0E}#root{min-height:100vh}</style>
 </head>
 <body>
 <div id="root"></div>
@@ -194,10 +190,11 @@ const Legend = () => (
   </div>
 );
 
-// ▸ Building Map (NYC Cross-Section — matching architectural drawing)
-const UnitGrid = ({ units, onSelect, selectedId, tradeFilter }) => {
+// ▸ Building Map (NYC Cross-Section with Common Areas)
+const UnitGrid = ({ units, onSelect, selectedId, tradeFilter, commonAreas, setCommonAreas, areaList, showAreas }) => {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [editingCA, setEditingCA] = useState(null);
   const maxFloor = Math.max(...units.map(u => u.floor));
   const perFloor = Math.ceil(units.length / maxFloor);
 
@@ -215,6 +212,17 @@ const UnitGrid = ({ units, onSelect, selectedId, tradeFilter }) => {
   const floors = {};
   units.forEach(u => { if (!floors[u.floor]) floors[u.floor] = []; floors[u.floor].push(u); });
   const floorNums = Object.keys(floors).map(Number).sort((a, b) => b - a);
+
+  // Common area helpers
+  const getCAStatus = (areaId, item) => (commonAreas[`${areaId}-${item}`]?.status) || "Pending";
+  const getCAColor = (areaId, item) => getTradeColor(getCAStatus(areaId, item));
+  const caItems = (id) => (areaList.find(a => a.id === id)?.items) || [];
+  const cycleCAStatus = (key) => {
+    const order = ["Pending","Started","In Progress","Complete"];
+    const cur = commonAreas[key]?.status || "Pending";
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    setCommonAreas({ ...commonAreas, [key]: { ...commonAreas[key], status: next, trades: commonAreas[key]?.trades || {} } });
+  };
 
   const uW = 72, uH = 54, pad = 8;
   const floorH = uH + pad * 2 + 4;
@@ -387,8 +395,124 @@ const UnitGrid = ({ units, onSelect, selectedId, tradeFilter }) => {
               <text x={bx+bw/2} y={by2+bsmtH+22} textAnchor="middle" fill={TXT2} fontSize="8" letterSpacing="3" opacity="0.5">▼ BELOW GRADE ▼</text>
             </g>);
           })()}
+
+          {/* ═══ COMMON AREA ITEMS ON ROOF (Gold/Amber) ═══ */}
+          {showAreas?.roof !== false && caItems("roof").map((item, i) => {
+            const key = `roof-${item}`;
+            const statusCol = getCAColor("roof", item);
+            const areaCol = "#FFD700";
+            const rx = bx + 8 + i * 95;
+            const ry = by - parapetH - bulkH - 28;
+            return (
+              <g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
+                <rect x={rx} y={ry} width={90} height={24} rx="4" fill={areaCol + "25"} stroke={areaCol} strokeWidth="2" />
+                <circle cx={rx+12} cy={ry+12} r="5" fill={statusCol} stroke={statusCol === "#FFFFFF" ? "#999" : statusCol} strokeWidth="0.5" />
+                <text x={rx+50} y={ry+15} textAnchor="middle" fill={areaCol} fontSize="10" fontWeight="700">{item}</text>
+              </g>
+            );
+          })}
+
+          {/* ═══ COMMON AREA ITEMS IN ELEVATOR SHAFT (Cyan/Teal) ═══ */}
+          {showAreas?.elev !== false && caItems("elev").map((item, i) => {
+            const key = `elev-${item}`;
+            const statusCol = getCAColor("elev", item);
+            const areaCol = "#00BCD4";
+            const ey2 = by + 8 + i * 30;
+            return (
+              <g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
+                <rect x={bx+bodyW+4} y={ey2} width={elevW-8} height={24} rx="4" fill={areaCol + "25"} stroke={areaCol} strokeWidth="2" />
+                <circle cx={bx+bodyW+16} cy={ey2+12} r="5" fill={statusCol} stroke={statusCol === "#FFFFFF" ? "#999" : statusCol} strokeWidth="0.5" />
+                <text x={bx+bodyW+elevW/2+4} y={ey2+15} textAnchor="middle" fill={areaCol} fontSize="9" fontWeight="700">{item}</text>
+              </g>
+            );
+          })}
+
+          {/* ═══ COMMON AREA ITEMS IN BASEMENT (Orange) ═══ */}
+          {showAreas?.base !== false && caItems("base").map((item, i) => {
+            const key = `base-${item}`;
+            const statusCol = getCAColor("base", item);
+            const areaCol = "#FF9800";
+            const bsy = by + bodyH + stepsH;
+            const bsx = bx + 8 + i * 90;
+            return (
+              <g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
+                <rect x={bsx} y={bsy+bsmtH-30} width={85} height={24} rx="4" fill={areaCol + "25"} stroke={areaCol} strokeWidth="2" />
+                <circle cx={bsx+12} cy={bsy+bsmtH-18} r="5" fill={statusCol} stroke={statusCol === "#FFFFFF" ? "#999" : statusCol} strokeWidth="0.5" />
+                <text x={bsx+50} y={bsy+bsmtH-15} textAnchor="middle" fill={areaCol} fontSize="10" fontWeight="700">{item}</text>
+              </g>
+            );
+          })}
+
         </svg>
       </div>
+
+      {/* ═══ GROUNDS SECTION (Purple/Violet) ═══ */}
+      {showAreas?.grnd !== false && caItems("grnd").length > 0 && (
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "10px 16px", background: "#9C27B0" + "12", border: `2px solid #9C27B0`, borderRadius: 8 }}>
+            <span style={{ fontFamily: font, fontSize: 13, color: "#CE93D8", fontWeight: 700, alignSelf: "center", marginRight: 6 }}>🌳 GROUNDS:</span>
+            {caItems("grnd").map(item => {
+              const key = `grnd-${item}`;
+              const statusCol = getCAColor("grnd", item);
+              return (
+                <button key={key} onClick={() => setEditingCA(key)}
+                  style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, fontFamily: font, fontWeight: 700,
+                    background: "#9C27B0" + "20", color: "#CE93D8", border: `2px solid #9C27B0`,
+                    cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: statusCol, display: "inline-block",
+                    border: statusCol === "#FFFFFF" ? "1px solid #999" : "none" }} />
+                  {item}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ COMMON AREA EDIT POPUP ═══ */}
+      {editingCA && (
+        <div style={S.modal} onClick={() => setEditingCA(null)}>
+          <div style={{ ...S.modalInner, maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ fontFamily: font, color: PK, margin: 0, fontSize: 16 }}>{editingCA.replace("-", " → ")}</h3>
+              <button style={S.btn()} onClick={() => setEditingCA(null)}>✕</button>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Status (click to change)</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {["Pending","Started","In Progress","Complete"].map(st => {
+                  const active = (commonAreas[editingCA]?.status || "Pending") === st;
+                  return (
+                    <button key={st} style={{
+                      ...S.btn(active ? "primary" : undefined), fontSize: 12, padding: "8px 14px",
+                      background: active ? getTradeColor(st) : undefined,
+                      color: active ? (st === "Pending" || st === "In Progress" ? "#000" : "#FFF") : undefined,
+                    }} onClick={() => setCommonAreas({ ...commonAreas, [editingCA]: { ...commonAreas[editingCA], status: st, trades: commonAreas[editingCA]?.trades || {} } })}>
+                      {st}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Assign Trades</label>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {TRADES.map(t => {
+                  const on = commonAreas[editingCA]?.trades?.[t];
+                  return (
+                    <button key={t} style={{ ...S.btn(on ? "primary" : undefined), fontSize: 10, padding: "4px 8px" }}
+                      onClick={() => {
+                        const cur = commonAreas[editingCA] || { trades: {}, status: "Pending" };
+                        setCommonAreas({ ...commonAreas, [editingCA]: { ...cur, trades: { ...cur.trades, [t]: !on } } });
+                      }}>{on ? "✓ " : ""}{t}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <button style={S.btn("primary")} onClick={() => setEditingCA(null)}>Done</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -428,11 +552,30 @@ const UnitModal = ({ unit, onClose, onUpdate }) => {
     }, 2000);
   };
 
-  const addPhoto = () => {
-    const annotation = photoAnnotation || "Site photo";
-    const updated = { ...unit, photos: [...unit.photos, { id: Date.now(), annotation, date: new Date().toISOString(), marked: false }] };
-    onUpdate(updated);
+  const fileInputRef = useRef(null);
+  const [viewingPhoto, setViewingPhoto] = useState(null);
+
+  const addPhoto = (e) => {
+    const files = e?.target?.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const annotation = photoAnnotation || file.name || "Site photo";
+        const newPhoto = { id: Date.now() + Math.random(), annotation, date: new Date().toISOString(), marked: false, src: ev.target.result, fileName: file.name };
+        const updated = { ...unit, photos: [...unit.photos, newPhoto] };
+        onUpdate(updated);
+      };
+      reader.readAsDataURL(file);
+    });
     setPhotoAnnotation("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const deletePhoto = (photoId) => {
+    const updated = { ...unit, photos: unit.photos.filter(p => p.id !== photoId) };
+    onUpdate(updated);
+    setViewingPhoto(null);
   };
 
   return (
@@ -526,23 +669,66 @@ const UnitModal = ({ unit, onClose, onUpdate }) => {
         {tab === "photos" && (
           <div>
             <div style={{ marginBottom: 12 }}>
-              <input style={S.input} placeholder="Photo annotation / description..." value={photoAnnotation} onChange={e => setPhotoAnnotation(e.target.value)} />
-              <button style={{ ...S.btn("primary"), marginTop: 8 }} onClick={addPhoto}>📷 Add Photo</button>
+              <input style={S.input} placeholder="Photo annotation / description (optional)..." value={photoAnnotation} onChange={e => setPhotoAnnotation(e.target.value)} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={addPhoto}
+                  style={{ display: "none" }} />
+                <button style={S.btn("primary")} onClick={() => fileInputRef.current?.click()}>📷 Upload Photo</button>
+                <button style={S.btn()} onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.setAttribute("capture", "environment");
+                    fileInputRef.current.click();
+                    fileInputRef.current.removeAttribute("capture");
+                  }
+                }}>📱 Take Photo</button>
+                <span style={{ fontSize: 11, color: TXT2 }}>{unit.photos.length} photo(s)</span>
+              </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
               {unit.photos.map((p, i) => (
                 <div key={p.id} style={{ ...S.card, padding: 8, textAlign: "center" }}>
-                  <div style={{ background: BD, borderRadius: 4, height: 80, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, marginBottom: 6 }}>📸</div>
-                  <div style={{ fontSize: 10, color: PK, fontFamily: font }}>{p.annotation}</div>
+                  <div onClick={() => setViewingPhoto(p)} style={{ cursor: "pointer", borderRadius: 4, overflow: "hidden", height: 120, marginBottom: 6, background: BD }}>
+                    {p.src ? (
+                      <img src={p.src} alt={p.annotation} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📸</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: PK, fontFamily: font, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.annotation}</div>
                   <div style={{ fontSize: 9, color: TXT2 }}>{formatDate(p.date)}</div>
-                  <button style={{ ...S.btn(), fontSize: 10, padding: "2px 8px", marginTop: 4 }} onClick={() => {
-                    const updated = { ...unit, photos: unit.photos.map((ph, idx) => idx === i ? { ...ph, marked: !ph.marked } : ph) };
-                    onUpdate(updated);
-                  }}>{p.marked ? "✅ Marked" : "✏️ Annotate"}</button>
+                  <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 4 }}>
+                    <button style={{ ...S.btn(), fontSize: 10, padding: "2px 8px" }} onClick={() => {
+                      const updated = { ...unit, photos: unit.photos.map((ph, idx) => idx === i ? { ...ph, marked: !ph.marked } : ph) };
+                      onUpdate(updated);
+                    }}>{p.marked ? "✅ Marked" : "✏️ Mark"}</button>
+                    <button style={{ ...S.btn("danger"), fontSize: 10, padding: "2px 8px" }} onClick={() => deletePhoto(p.id)}>🗑️</button>
+                  </div>
                 </div>
               ))}
-              {unit.photos.length === 0 && <div style={{ color: TXT2, fontSize: 13 }}>No photos yet</div>}
+              {unit.photos.length === 0 && <div style={{ color: TXT2, fontSize: 13, gridColumn: "1 / -1" }}>No photos yet — upload or take a photo</div>}
             </div>
+
+            {/* Photo Viewer Modal */}
+            {viewingPhoto && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}
+                onClick={() => setViewingPhoto(null)}>
+                <div style={{ maxWidth: "90vw", maxHeight: "80vh", position: "relative" }} onClick={e => e.stopPropagation()}>
+                  {viewingPhoto.src ? (
+                    <img src={viewingPhoto.src} alt={viewingPhoto.annotation} style={{ maxWidth: "100%", maxHeight: "75vh", borderRadius: 8, border: `2px solid ${PK}` }} />
+                  ) : (
+                    <div style={{ width: 400, height: 300, background: BD, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48, borderRadius: 8 }}>📸</div>
+                  )}
+                  <div style={{ textAlign: "center", marginTop: 12 }}>
+                    <div style={{ fontFamily: font, fontSize: 14, color: AG, fontWeight: 700 }}>{viewingPhoto.annotation}</div>
+                    <div style={{ fontSize: 11, color: TXT2, marginTop: 2 }}>{formatDate(viewingPhoto.date)} • Unit {unit.unit}</div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
+                      <button style={S.btn("danger")} onClick={() => deletePhoto(viewingPhoto.id)}>🗑️ Delete</button>
+                      <button style={S.btn()} onClick={() => setViewingPhoto(null)}>✕ Close</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1135,6 +1321,9 @@ function App() {
   const [schedule] = useState(() => generateSchedule());
   const [commonAreas, setCommonAreas] = useState({});
   const [areaList, setAreaList] = useState(DEFAULT_COMMON_AREAS);
+  const [showAreas, setShowAreas] = useState({ elev: true, roof: true, base: true, grnd: true });
+  const [sidebarAddItem, setSidebarAddItem] = useState(null);
+  const [sidebarNewItem, setSidebarNewItem] = useState("");
   const [page, setPage] = useState("dashboard");
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [tradeFilter, setTradeFilter] = useState("");
@@ -1340,49 +1529,100 @@ function App() {
 
           {/* Building Config Section */}
           {sidebarOpen && (
-            <div style={{ padding: "8px", borderTop: `1px solid ${BD}` }}>
-              <div style={{ fontFamily: font, fontSize: 9, color: TXT2, textTransform: "uppercase", letterSpacing: 1, padding: "4px 8px", fontWeight: 700 }}>Building Setup</div>
+            <div style={{ padding: "8px", borderTop: `1px solid ${BD}`, overflow: "auto", maxHeight: 420 }}>
+              <div style={{ fontFamily: font, fontSize: 9, color: AG, textTransform: "uppercase", letterSpacing: 1, padding: "4px 8px", fontWeight: 700 }}>Building Setup</div>
 
-              <div style={{ padding: "6px 8px" }}>
-                <label style={{ fontSize: 10, color: TXT2, fontFamily: font, display: "block", marginBottom: 3 }}>FORMAT</label>
-                <button
-                  onClick={() => regenerate({ format: unitFormat === "alpha" ? "numeric" : "alpha" })}
-                  style={{ ...S.btn(unitFormat === "alpha" ? "primary" : undefined), fontSize: 10, padding: "4px 10px", width: "100%" }}>
-                  {unitFormat === "alpha" ? "Alpha: 1A, 1B, 2A..." : "Numeric: 101, 102, 201..."}
-                </button>
-              </div>
-
-              <div style={{ padding: "6px 8px" }}>
-                <label style={{ fontSize: 10, color: TXT2, fontFamily: font, display: "block", marginBottom: 3 }}>FLOORS</label>
-                <select style={{ ...S.select, padding: "4px 6px", fontSize: 11, width: "100%" }}
-                  value={floorCount}
-                  onChange={e => regenerate({ floors: parseInt(e.target.value) })}>
-                  {Array.from({ length: 60 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-
-              <div style={{ padding: "6px 8px" }}>
-                <label style={{ fontSize: 10, color: TXT2, fontFamily: font, display: "block", marginBottom: 3 }}>UNITS PER FLOOR</label>
-                <select style={{ ...S.select, padding: "4px 6px", fontSize: 11, width: "100%" }}
-                  value={perFloor}
-                  onChange={e => regenerate({ perFloor: parseInt(e.target.value) })}>
-                  {Array.from({ length: 30 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-
-              <div style={{ padding: "4px 8px", textAlign: "center" }}>
-                <div style={{ fontFamily: font, fontSize: 10, color: PK, background: PK + "15", padding: "4px 8px", borderRadius: 3, border: `1px solid ${PK}30` }}>
-                  {floorCount} floors × {perFloor} units = <strong>{floorCount * perFloor} total</strong>
+              {/* FORMAT */}
+              <div style={{ padding: "5px 8px" }}>
+                <label style={{ fontSize: 9, color: TXT2, fontFamily: font, display: "block", marginBottom: 2 }}>FORMAT</label>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button onClick={() => regenerate({ format: "alpha" })}
+                    style={{ ...S.btn(unitFormat === "alpha" ? "primary" : undefined), fontSize: 9, padding: "3px 8px", flex: 1 }}>
+                    Alpha (1A, 1B)
+                  </button>
+                  <button onClick={() => regenerate({ format: "numeric" })}
+                    style={{ ...S.btn(unitFormat === "numeric" ? "primary" : undefined), fontSize: 9, padding: "3px 8px", flex: 1 }}>
+                    Numeric (101)
+                  </button>
                 </div>
               </div>
 
-              <div style={{ padding: "4px 8px", textAlign: "center", marginTop: 2 }}>
-                <div style={{ fontFamily: font, fontSize: 9, color: AG, opacity: 0.7 }}>
-                  {unitFormat === "alpha"
-                    ? `${floorCount}A → ${floorCount}${getLetterLabel(perFloor - 1)}`
-                    : `${floorCount}01 → ${floorCount}${String(perFloor).padStart(2, "0")}`
-                  }
+              {/* FLOORS + UNITS PER FLOOR side by side */}
+              <div style={{ display: "flex", gap: 4, padding: "5px 8px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 9, color: TXT2, fontFamily: font, display: "block", marginBottom: 2 }}>FLOORS</label>
+                  <select style={{ ...S.select, padding: "3px 4px", fontSize: 10, width: "100%" }}
+                    value={floorCount} onChange={e => regenerate({ floors: parseInt(e.target.value) })}>
+                    {Array.from({ length: 60 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
                 </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 9, color: TXT2, fontFamily: font, display: "block", marginBottom: 2 }}>PER FLOOR</label>
+                  <select style={{ ...S.select, padding: "3px 4px", fontSize: 10, width: "100%" }}
+                    value={perFloor} onChange={e => regenerate({ perFloor: parseInt(e.target.value) })}>
+                    {Array.from({ length: 30 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* TOTAL */}
+              <div style={{ padding: "3px 8px", textAlign: "center" }}>
+                <div style={{ fontFamily: font, fontSize: 10, color: PK, background: PK + "15", padding: "3px 6px", borderRadius: 3, border: `1px solid ${PK}30` }}>
+                  {floorCount} x {perFloor} = <strong>{floorCount * perFloor} units</strong>
+                  <span style={{ marginLeft: 6, fontSize: 8, color: AG, opacity: 0.8 }}>
+                    ({unitFormat === "alpha" ? `1A-${floorCount}${getLetterLabel(perFloor - 1)}` : `101-${floorCount}${String(perFloor).padStart(2, "0")}`})
+                  </span>
+                </div>
+              </div>
+
+              {/* COMMON AREAS WITH TOGGLES */}
+              <div style={{ padding: "5px 8px", borderTop: `1px solid ${BD}`, marginTop: 6 }}>
+                <div style={{ fontFamily: font, fontSize: 9, color: PK, textTransform: "uppercase", letterSpacing: 1, padding: "4px 0 2px", fontWeight: 700 }}>
+                  Common Areas
+                </div>
+
+                {areaList.map(area => (
+                  <div key={area.id} style={{ marginBottom: 5, padding: "3px 0", borderBottom: `1px solid ${BD}20` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                      <input type="checkbox" checked={showAreas[area.id] !== false}
+                        onChange={e => setShowAreas({ ...showAreas, [area.id]: e.target.checked })}
+                        style={{ accentColor: AG, width: 12, height: 12 }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, flex: 1 }}>{area.icon} {area.label}</span>
+                      <button style={{ background: "none", border: "none", color: PK2, cursor: "pointer", fontSize: 9 }}
+                        onClick={() => { if (confirm(`Remove ${area.label}?`)) setAreaList(areaList.filter(a => a.id !== area.id)); }}>x</button>
+                    </div>
+                    <div style={{ paddingLeft: 18 }}>
+                      {area.items.map(item => {
+                        const col = getTradeColor(commonAreas[`${area.id}-${item}`]?.status || "Pending");
+                        return (
+                          <div key={item} style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 1 }}>
+                            <div style={{ width: 7, height: 7, borderRadius: 2, background: col, flexShrink: 0 }} />
+                            <span style={{ fontSize: 9, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item}</span>
+                            <button style={{ background: "none", border: "none", color: TXT2, cursor: "pointer", fontSize: 8 }}
+                              onClick={() => setAreaList(areaList.map(a => a.id === area.id ? { ...a, items: a.items.filter(i => i !== item) } : a))}>x</button>
+                          </div>
+                        );
+                      })}
+                      {sidebarAddItem === area.id ? (
+                        <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
+                          <input style={{ ...S.input, fontSize: 9, padding: "2px 4px" }} value={sidebarNewItem}
+                            onChange={e => setSidebarNewItem(e.target.value)} placeholder="Item..."
+                            onKeyDown={e => { if (e.key === "Enter" && sidebarNewItem.trim()) { setAreaList(areaList.map(a => a.id === area.id ? { ...a, items: [...a.items, sidebarNewItem.trim()] } : a)); setSidebarNewItem(""); setSidebarAddItem(null); }}} autoFocus />
+                          <button style={{ ...S.btn("primary"), fontSize: 8, padding: "2px 4px" }}
+                            onClick={() => { if (sidebarNewItem.trim()) { setAreaList(areaList.map(a => a.id === area.id ? { ...a, items: [...a.items, sidebarNewItem.trim()] } : a)); setSidebarNewItem(""); setSidebarAddItem(null); }}}>+</button>
+                        </div>
+                      ) : (
+                        <button style={{ background: "none", border: "none", color: AG, cursor: "pointer", fontSize: 8, padding: "1px 0" }}
+                          onClick={() => { setSidebarAddItem(area.id); setSidebarNewItem(""); }}>+ add item</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                <button style={{ ...S.btn(), fontSize: 9, padding: "3px 6px", width: "100%", marginTop: 3 }}
+                  onClick={() => { const nm = prompt("New area name:"); if (nm?.trim()) { const id = nm.trim().toLowerCase().replace(/\s+/g,"_").slice(0,8)+"_"+Date.now(); setAreaList([...areaList, { id, label: nm.trim(), icon: "🔧", items: [] }]); setShowAreas({...showAreas,[id]:true}); }}}>+ Add Area</button>
+                <button style={{ ...S.btn(), fontSize: 9, padding: "3px 6px", width: "100%", marginTop: 3 }}
+                  onClick={() => navigate("common")}>Full Editor →</button>
               </div>
             </div>
           )}
@@ -1421,7 +1661,7 @@ function App() {
 
             <div style={S.card}>
               <div style={S.cardTitle}>Unit Map</div>
-              <UnitGrid units={units} onSelect={setSelectedUnit} selectedId={selectedUnit?.id} tradeFilter={tradeFilter} />
+              <UnitGrid units={units} onSelect={setSelectedUnit} selectedId={selectedUnit?.id} tradeFilter={tradeFilter} commonAreas={commonAreas} setCommonAreas={setCommonAreas} areaList={areaList} showAreas={showAreas} />
             </div>
           </div>
         )}
@@ -1459,7 +1699,7 @@ function App() {
 
             <div style={S.card}>
               <div style={S.cardTitle}>{tradeFilter} Unit Map</div>
-              <UnitGrid units={units} onSelect={setSelectedUnit} selectedId={selectedUnit?.id} tradeFilter={tradeFilter} />
+              <UnitGrid units={units} onSelect={setSelectedUnit} selectedId={selectedUnit?.id} tradeFilter={tradeFilter} commonAreas={commonAreas} setCommonAreas={setCommonAreas} areaList={areaList} showAreas={showAreas} />
             </div>
           </div>
         )}
@@ -1477,8 +1717,7 @@ function App() {
   );
 }
 
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(React.createElement(App));
 </script>
 </body>
