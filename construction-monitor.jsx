@@ -853,8 +853,8 @@ export default function App() {
   };
 
   const dayName = now.toLocaleDateString("en-US", { weekday: "long" });
-  const dateStr = `${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}-${now.getFullYear()}`;
-  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
   const mainPages = [
     { id: "dashboard", label: "Dashboard", icon: "🏢" },
@@ -896,21 +896,15 @@ export default function App() {
         }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", zIndex: 2 }}>
-          {/* Left: 4 info lines */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {/* LINE 1: Day, Date */}
-            <div style={{ fontFamily: font, fontSize: 16, fontWeight: 800, color: AG, letterSpacing: 1 }}>
-              {dayName}, {dateStr}
+          {/* Left: App Name + Project */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <div style={{ fontFamily: font, fontSize: 28, fontWeight: 800, color: AG, letterSpacing: 3, textTransform: "uppercase" }}>
+              BuildTrack <span style={{ color: PK }}>NYC</span>
             </div>
-            {/* LINE 2: Time */}
-            <div style={{ fontFamily: font, fontSize: 22, fontWeight: 800, color: PK, letterSpacing: 2 }}>
-              {timeStr}
-            </div>
-            {/* LINE 3: Project Name */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {editingProject ? (
                 <input
-                  style={{ ...S.input, width: 400, fontSize: 13, fontWeight: 700, padding: "4px 8px" }}
+                  style={{ ...S.input, width: 400, fontSize: 15, fontWeight: 700, padding: "4px 8px" }}
                   value={projectName}
                   onChange={e => setProjectName(e.target.value)}
                   onBlur={() => setEditingProject(false)}
@@ -918,61 +912,32 @@ export default function App() {
                   autoFocus
                 />
               ) : (
-                <div style={{ fontFamily: font, fontSize: 13, fontWeight: 700, color: TXT, cursor: "pointer", letterSpacing: 0.5 }}
+                <div style={{ fontFamily: font, fontSize: 15, fontWeight: 700, color: TXT, cursor: "pointer", letterSpacing: 0.5 }}
                   onClick={() => setEditingProject(true)} title="Click to edit project name">
                   🏗️ {projectName}
                 </div>
               )}
             </div>
-            {/* LINE 4: Weather */}
-            <div style={{ fontFamily: font, fontSize: 12, color: AG2, display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 16 }}>{weather.icon}</span>
+          </div>
+
+          {/* Right: Day, Date, Time, Weather, Version */}
+          <div style={{ textAlign: "right", display: "flex", flexDirection: "column", gap: 0 }}>
+            <div style={{ fontFamily: font, fontSize: 40, fontWeight: 800, color: AG, letterSpacing: 1 }}>
+              {dayName}
+            </div>
+            <div style={{ fontFamily: font, fontSize: 18, fontWeight: 700, color: TXT, letterSpacing: 0.5 }}>
+              {dateStr}
+            </div>
+            <div style={{ fontFamily: font, fontSize: 26, fontWeight: 800, color: PK, letterSpacing: 2 }}>
+              {timeStr}
+            </div>
+            <div style={{ fontFamily: font, fontSize: 14, color: AG2, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+              <span style={{ fontSize: 40 }}>{weather.icon}</span>
               <span>{weather.condition}</span>
               <span style={{ color: PK, fontWeight: 700 }}>{weather.temp}°F</span>
             </div>
-          </div>
-
-          {/* Right: Building Config */}
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: font, fontSize: 20, fontWeight: 800, color: AG, letterSpacing: 2, textTransform: "uppercase" }}>
-              BuildTrack <span style={{ color: PK }}>NYC</span>
-            </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end", marginTop: 8, flexWrap: "wrap" }}>
-              {/* Format toggle */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <label style={{ fontSize: 9, color: TXT2, fontFamily: font, letterSpacing: 0.5 }}>FORMAT:</label>
-                <button
-                  onClick={() => regenerate(null, unitFormat === "alpha" ? "numeric" : "alpha", null)}
-                  style={{
-                    ...S.btn(unitFormat === "alpha" ? "primary" : undefined),
-                    fontSize: 10, padding: "3px 8px",
-                    display: "flex", alignItems: "center", gap: 4,
-                  }}>
-                  {unitFormat === "alpha" ? "1A, 1B, 2A..." : "101, 102, 201..."}
-                </button>
-              </div>
-              {/* Floors */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <label style={{ fontSize: 9, color: TXT2, fontFamily: font, letterSpacing: 0.5 }}>FLOORS:</label>
-                <select style={{ ...S.select, padding: "3px 6px", fontSize: 11, width: 52 }}
-                  value={floorCount}
-                  onChange={e => regenerate(null, null, parseInt(e.target.value))}>
-                  {Array.from({ length: 50 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              {/* Units */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <label style={{ fontSize: 9, color: TXT2, fontFamily: font, letterSpacing: 0.5 }}>UNITS:</label>
-                <select style={{ ...S.select, padding: "3px 6px", fontSize: 11, width: 60 }}
-                  value={unitCount}
-                  onChange={e => regenerate(parseInt(e.target.value), null, null)}>
-                  {Array.from({ length: 476 }, (_, i) => i + 25).map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              {/* Per floor readout */}
-              <div style={{ fontFamily: font, fontSize: 9, color: PK, background: PK + "15", padding: "3px 8px", borderRadius: 3, border: `1px solid ${PK}30` }}>
-                {Math.ceil(unitCount / floorCount)}/floor
-              </div>
+            <div style={{ fontFamily: font, fontSize: 9, color: TXT2, letterSpacing: 1, opacity: 0.6 }}>
+              v1.0.0
             </div>
           </div>
         </div>
@@ -1059,10 +1024,43 @@ export default function App() {
             </div>
           </div>
 
-          {/* Sidebar footer */}
+          {/* Building Config Section */}
           {sidebarOpen && (
-            <div style={{ padding: "12px", borderTop: `1px solid ${BD}`, textAlign: "center" }}>
-              <div style={{ fontFamily: font, fontSize: 9, color: TXT2, letterSpacing: 1 }}>BUILDTRACK v1.0</div>
+            <div style={{ padding: "8px", borderTop: `1px solid ${BD}` }}>
+              <div style={{ fontFamily: font, fontSize: 9, color: TXT2, textTransform: "uppercase", letterSpacing: 1, padding: "4px 8px", fontWeight: 700 }}>General</div>
+
+              <div style={{ padding: "6px 8px" }}>
+                <label style={{ fontSize: 10, color: TXT2, fontFamily: font, display: "block", marginBottom: 3 }}>FORMAT</label>
+                <button
+                  onClick={() => regenerate(null, unitFormat === "alpha" ? "numeric" : "alpha", null)}
+                  style={{ ...S.btn(unitFormat === "alpha" ? "primary" : undefined), fontSize: 10, padding: "4px 10px", width: "100%" }}>
+                  {unitFormat === "alpha" ? "1A, 1B, 2A..." : "101, 102, 201..."}
+                </button>
+              </div>
+
+              <div style={{ padding: "6px 8px" }}>
+                <label style={{ fontSize: 10, color: TXT2, fontFamily: font, display: "block", marginBottom: 3 }}>FLOORS</label>
+                <select style={{ ...S.select, padding: "4px 6px", fontSize: 11, width: "100%" }}
+                  value={floorCount}
+                  onChange={e => regenerate(null, null, parseInt(e.target.value))}>
+                  {Array.from({ length: 50 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+
+              <div style={{ padding: "6px 8px" }}>
+                <label style={{ fontSize: 10, color: TXT2, fontFamily: font, display: "block", marginBottom: 3 }}>UNITS</label>
+                <select style={{ ...S.select, padding: "4px 6px", fontSize: 11, width: "100%" }}
+                  value={unitCount}
+                  onChange={e => regenerate(parseInt(e.target.value), null, null)}>
+                  {Array.from({ length: 476 }, (_, i) => i + 25).map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+
+              <div style={{ padding: "4px 8px", textAlign: "center" }}>
+                <div style={{ fontFamily: font, fontSize: 10, color: PK, background: PK + "15", padding: "3px 8px", borderRadius: 3, border: `1px solid ${PK}30` }}>
+                  {Math.ceil(unitCount / floorCount)} units/floor
+                </div>
+              </div>
             </div>
           )}
         </div>
