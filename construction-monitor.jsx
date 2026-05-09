@@ -176,7 +176,7 @@ const Legend = () => (
   </div>
 );
 
-// ▸ Building Map (NYC Cross-Section with Common Areas)
+// ▸ Building Map (NYC Cross-Section — Architectural Dashboard)
 const UnitGrid = ({ units, onSelect, selectedId, tradeFilter, commonAreas, setCommonAreas, areaList, showAreas }) => {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -191,45 +191,53 @@ const UnitGrid = ({ units, onSelect, selectedId, tradeFilter, commonAreas, setCo
   else if (statusFilter === "In Progress") filtered = filtered.filter(u => !u.vacant && Object.values(u.trades).some(t => t.status === "In Progress"));
   else if (statusFilter === "Complete") filtered = filtered.filter(u => !u.vacant && Object.values(u.trades).every(t => t.status === "Complete"));
   if (search) filtered = filtered.filter(u => u.unit.toLowerCase().includes(search.toLowerCase()) || `${u.contact.first} ${u.contact.last}`.toLowerCase().includes(search.toLowerCase()));
-  if (tradeFilter) {
-    filtered = filtered.map(u => ({ ...u, _color: u.vacant ? STATUS_COLORS["Vacant"] : getTradeColor(u.trades[tradeFilter]?.status) }));
-  }
+  if (tradeFilter) filtered = filtered.map(u => ({ ...u, _color: u.vacant ? STATUS_COLORS["Vacant"] : getTradeColor(u.trades[tradeFilter]?.status) }));
   const filteredIds = new Set(filtered.map(u => u.id));
   const floors = {};
   units.forEach(u => { if (!floors[u.floor]) floors[u.floor] = []; floors[u.floor].push(u); });
   const floorNums = Object.keys(floors).map(Number).sort((a, b) => b - a);
 
-  // Common area helpers
   const getCAStatus = (areaId, item) => (commonAreas[`${areaId}-${item}`]?.status) || "Pending";
   const getCAColor = (areaId, item) => getTradeColor(getCAStatus(areaId, item));
   const caItems = (id) => (areaList.find(a => a.id === id)?.items) || [];
-  const cycleCAStatus = (key) => {
-    const order = ["Pending","Started","In Progress","Complete"];
-    const cur = commonAreas[key]?.status || "Pending";
-    const next = order[(order.indexOf(cur) + 1) % order.length];
-    setCommonAreas({ ...commonAreas, [key]: { ...commonAreas[key], status: next, trades: commonAreas[key]?.trades || {} } });
+
+  const floorBandColors = ["#D8B4FE","#93C5FD","#BAE6FD","#BBF7D0","#BBF7D0","#FDE68A","#BBF7D0","#BBF7D0","#93C5FD","#D8B4FE","#BBF7D0","#BAE6FD","#FDE68A","#BBF7D0","#D8B4FE"];
+  const getFloorColor = (fi) => floorBandColors[fi % floorBandColors.length];
+  const elevColors = ["#E74C3C","#27AE60","#2ECC71","#F1C40F","#3498DB","#E67E22"];
+
+  // Floor label helper
+  const floorLabel = (n) => {
+    if (n === 1) return "LBY";
+    if (n === 2) return "2nd Fl";
+    if (n === 3) return "3rd Fl";
+    return `${n}th Fl`;
   };
 
-  const uW = 72, uH = 54, pad = 8;
-  const floorH = uH + pad * 2 + 4;
-  const bodyW = perFloor * (uW + pad) + pad + 50;
-  const elevW = 55;
-  const totalW = bodyW + elevW + 30;
+  // Sizing
+  const uW = 64, uH = 44;
+  const floorH = uH + 22;
+  const floorLblW = 48;
+  const elevShaftW = 52;
+  const cars = caItems("elev");
+  const elevCarsW = Math.max(cars.length * 48, 50);
+  const unitsRowW = perFloor * (uW + 6) + 10;
+  const bodyW = floorLblW + unitsRowW + elevCarsW + elevShaftW + 10;
+  const roofH = 120;
+  const lobbyH = 70;
+  const bsmtH = 85;
   const bodyH = maxFloor * floorH;
-  const roofH = 20, parapetH = 18;
-  const wtH = 75;
-  const stepsH = 55;
-  const bsmtH = 100;
-  const bulkH = 40;
-  const totalH = wtH + bulkH + parapetH + roofH + bodyH + stepsH + bsmtH + 40;
-  const bx = 15, by = wtH + bulkH + parapetH + roofH;
-  const OL = "#C0C8D4";
-  const WALL = "#1C1C2E";
-  const DARK = "#111120";
+  const totalW = bodyW + 20;
+  const totalH = roofH + bodyH + lobbyH + bsmtH + 50;
+  const bx = 10, by = roofH;
+  const OL = "#9CA3AF";
+  const WALL = "#1F2937";
+
+  // Elevator shaft X (inline with cars, right side of units)
+  const elevX = bx + floorLblW + unitsRowW + elevCarsW;
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <input style={{ ...S.input, width: 160 }} placeholder="Search unit or name..." value={search} onChange={e => setSearch(e.target.value)} />
         <select style={S.select} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>
@@ -238,71 +246,87 @@ const UnitGrid = ({ units, onSelect, selectedId, tradeFilter, commonAreas, setCo
         <span style={{ fontSize: 11, color: TXT2, fontFamily: font }}>{filtered.length} / {units.length} units</span>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", overflow: "auto" }}>
-        <svg viewBox={`0 0 ${totalW} ${totalH}`} style={{ width: "100%", maxWidth: totalW * 1.3, minWidth: 500 }}
+      <div style={{ overflow: "auto" }}>
+        <svg viewBox={`0 0 ${totalW} ${totalH}`} style={{ width: "100%", minWidth: 580, maxWidth: 1200 }}
           xmlns="http://www.w3.org/2000/svg" fontFamily={font}>
 
-          {/* ═══ WATER TOWER ═══ */}
-          {(() => {
-            const wx = bx + bodyW - 40, wy = 5;
+          {/* ═══ BULKHEAD (center of building) ═══ */}
+          {showAreas?.roof !== false && (() => {
+            const bkW = bodyW * 0.28;
+            const bkX = bx + bodyW / 2 - bkW / 2;
+            const bkY = by - 48;
             return (<g>
-              <path d={`M${wx} ${wy+30} L${wx+5} ${wy+12} L${wx+45} ${wy+12} L${wx+50} ${wy+30} Z`} fill={DARK} stroke={OL} strokeWidth="1.5" />
-              <path d={`M${wx+3} ${wy+12} L${wx+25} ${wy+2} L${wx+47} ${wy+12}`} fill="none" stroke={OL} strokeWidth="1.5" />
-              <line x1={wx+25} y1={wy+2} x2={wx+25} y2={wy-4} stroke={OL} strokeWidth="1" />
-              {[0,1,2,3].map(i => <line key={i} x1={wx+4+i*2} y1={wy+14+i*4} x2={wx+46-i*2} y2={wy+14+i*4} stroke={OL} strokeWidth="0.5" opacity="0.4" />)}
-              <line x1={wx+10} y1={wy+30} x2={wx+5} y2={wy+wtH-5} stroke={OL} strokeWidth="2" />
-              <line x1={wx+40} y1={wy+30} x2={wx+45} y2={wy+wtH-5} stroke={OL} strokeWidth="2" />
-              <line x1={wx+10} y1={wy+35} x2={wx+40} y2={wy+55} stroke={OL} strokeWidth="0.8" />
-              <line x1={wx+40} y1={wy+35} x2={wx+10} y2={wy+55} stroke={OL} strokeWidth="0.8" />
-              <text x={wx+56} y={wy+20} fill={AG} fontSize="9" fontWeight="700">WATER</text>
-              <text x={wx+56} y={wy+30} fill={AG} fontSize="9" fontWeight="700">TOWER</text>
+              <rect x={bkX} y={bkY} width={bkW} height={36} rx="3" fill="#FDE68A25" stroke="#FDE68A" strokeWidth="2.5" />
+              <rect x={bkX+4} y={bkY+4} width={bkW-8} height={28} fill="#FDE68A10" stroke="#FDE68A50" strokeWidth="0.5" />
+              <line x1={bkX} y1={bkY} x2={bkX+bkW} y2={bkY} stroke="#FDE68A" strokeWidth="2" />
+              <text x={bkX+bkW/2} y={bkY+22} textAnchor="middle" fill="#FDE68A" fontSize="11" fontWeight="800">BULKHEAD</text>
             </g>);
           })()}
 
-          {/* ═══ BULKHEAD ═══ */}
-          {(() => {
-            const bhx = bx + bodyW/3, bhy = by - parapetH - bulkH;
+          {/* ═══ WATER TOWER (above bulkhead, center) ═══ */}
+          {showAreas?.roof !== false && (() => {
+            const wtW = 50;
+            const wtX = bx + bodyW / 2 - wtW / 2;
+            const wtY = 4;
+            const legH = by - 52;
             return (<g>
-              <rect x={bhx} y={bhy} width={bodyW/4} height={bulkH} fill={WALL} stroke={OL} strokeWidth="2.5" />
-              <rect x={bhx+4} y={bhy+6} width={bodyW/4-8} height={bulkH-10} fill={DARK} stroke={OL} strokeWidth="1" opacity="0.6" />
-              <line x1={bhx} y1={bhy} x2={bhx+bodyW/4} y2={bhy} stroke={PK} strokeWidth="2" />
-              <text x={bhx+bodyW/8} y={bhy+bulkH/2+4} textAnchor="middle" fill={AG} fontSize="9" fontWeight="700">BULKHEAD</text>
+              {/* Tank body */}
+              <rect x={wtX} y={wtY+8} width={wtW} height={34} rx="4" fill="#4ADE8035" stroke="#4ADE80" strokeWidth="2" />
+              {/* Dome lid */}
+              <path d={`M${wtX+3} ${wtY+8} Q${wtX+wtW/2} ${wtY-4} ${wtX+wtW-3} ${wtY+8}`} fill="#4ADE8025" stroke="#4ADE80" strokeWidth="1.5" />
+              {/* Tank bands */}
+              <line x1={wtX+3} y1={wtY+18} x2={wtX+wtW-3} y2={wtY+18} stroke="#4ADE80" strokeWidth="0.6" opacity="0.5" />
+              <line x1={wtX+3} y1={wtY+28} x2={wtX+wtW-3} y2={wtY+28} stroke="#4ADE80" strokeWidth="0.6" opacity="0.5" />
+              {/* Support legs */}
+              <line x1={wtX+8} y1={wtY+42} x2={wtX+4} y2={wtY+42+legH} stroke={OL} strokeWidth="2" />
+              <line x1={wtX+wtW-8} y1={wtY+42} x2={wtX+wtW-4} y2={wtY+42+legH} stroke={OL} strokeWidth="2" />
+              {/* Cross braces */}
+              <line x1={wtX+8} y1={wtY+48} x2={wtX+wtW-8} y2={wtY+42+legH-6} stroke={OL} strokeWidth="1" />
+              <line x1={wtX+wtW-8} y1={wtY+48} x2={wtX+8} y2={wtY+42+legH-6} stroke={OL} strokeWidth="1" />
+              {/* Platform */}
+              <rect x={wtX-6} y={wtY+42+legH-2} width={wtW+12} height={4} fill={WALL} stroke={OL} strokeWidth="1" />
+              {/* Label */}
+              <text x={wtX+wtW/2} y={wtY+48+legH+14} textAnchor="middle" fill="#4ADE80" fontSize="8" fontWeight="700">WATER TOWER</text>
             </g>);
           })()}
 
-          {/* ═══ PARAPET / ROOF ═══ */}
-          <rect x={bx} y={by-parapetH} width={bodyW} height={parapetH} fill={WALL} stroke={OL} strokeWidth="2.5" />
-          <line x1={bx} y1={by-parapetH} x2={bx+bodyW} y2={by-parapetH} stroke={PK} strokeWidth="3" />
-          <text x={bx+bodyW/2} y={by-5} textAnchor="middle" fill={TXT2} fontSize="9" fontWeight="600">ROOF</text>
+          {/* ═══ ROOF / PARAPET ═══ */}
+          <rect x={bx} y={by-12} width={bodyW} height={12} fill={WALL} stroke={OL} strokeWidth="2.5" />
+          <line x1={bx} y1={by-12} x2={bx+bodyW} y2={by-12} stroke={OL} strokeWidth="3" />
 
           {/* ═══ BUILDING BODY ═══ */}
           <rect x={bx} y={by} width={bodyW} height={bodyH} fill={WALL} stroke={OL} strokeWidth="3" />
-          <line x1={bx+5} y1={by} x2={bx+5} y2={by+bodyH} stroke={OL} strokeWidth="1" opacity="0.4" />
-          <line x1={bx+bodyW-5} y1={by} x2={bx+bodyW-5} y2={by+bodyH} stroke={OL} strokeWidth="1" opacity="0.4" />
 
-          {/* ═══ ELEVATOR SHAFT (right side column) ═══ */}
-          <rect x={bx+bodyW} y={by-parapetH-bulkH} width={elevW} height={bodyH+parapetH+bulkH+stepsH+bsmtH} fill={DARK} stroke={OL} strokeWidth="3" />
-          <line x1={bx+bodyW+elevW/2} y1={by} x2={bx+bodyW+elevW/2} y2={by+bodyH+stepsH+bsmtH} stroke={OL} strokeWidth="0.8" opacity="0.3" />
-          <text x={bx+bodyW+elevW/2} y={by+bodyH/2} textAnchor="middle" fill={PK} fontSize="10" fontWeight="700"
-            transform={`rotate(-90,${bx+bodyW+elevW/2},${by+bodyH/2})`}>ELEVATOR SHAFT</text>
-          {floorNums.map((f, i) => {
-            const fy = by + i * floorH + floorH/2;
-            return <rect key={f} x={bx+bodyW+10} y={fy-7} width={elevW-20} height={14} rx="2" fill={AG+"20"} stroke={AG+"40"} strokeWidth="0.5" />;
-          })}
+          {/* ═══ ELEVATOR SHAFT (inline with cars, full height) ═══ */}
+          <rect x={elevX} y={by-12} width={elevShaftW} height={bodyH+12+lobbyH+bsmtH} fill="#0D121890" stroke={OL} strokeWidth="2" />
+          <line x1={elevX+2} y1={by-12} x2={elevX+2} y2={by+bodyH+lobbyH+bsmtH} stroke={OL} strokeWidth="1" opacity="0.4" />
+          <line x1={elevX+elevShaftW-2} y1={by-12} x2={elevX+elevShaftW-2} y2={by+bodyH+lobbyH+bsmtH} stroke={OL} strokeWidth="1" opacity="0.4" />
+          <line x1={elevX+elevShaftW/2} y1={by} x2={elevX+elevShaftW/2} y2={by+bodyH+lobbyH} stroke={OL} strokeWidth="0.5" opacity="0.25" strokeDasharray="4,4" />
+          <text x={elevX+elevShaftW/2} y={by+bodyH/2} textAnchor="middle" fill={PK} fontSize="9" fontWeight="700"
+            transform={`rotate(-90,${elevX+elevShaftW/2},${by+bodyH/2})`}>ELEVATOR SHAFT</text>
 
           {/* ═══ FLOORS WITH UNITS ═══ */}
           {floorNums.map((floorNum, fi) => {
             const fy = by + fi * floorH;
             const floorUnits = floors[floorNum];
-            const isGround = floorNum === 1;
+            const bandColor = getFloorColor(fi);
+            const isLobby = floorNum === 1;
+            const isTop = floorNum === maxFloor;
+
             return (<g key={floorNum}>
-              <line x1={bx} y1={fy} x2={bx+bodyW} y2={fy} stroke={OL} strokeWidth="1" opacity="0.5" />
-              <rect x={bx+6} y={fy+floorH/2-14} width={38} height={28} rx="4"
-                fill={isGround ? AG+"30" : DARK} stroke={isGround ? AG : OL} strokeWidth="1.5" />
-              <text x={bx+25} y={fy+floorH/2+5} textAnchor="middle"
-                fill={isGround ? AG : "#E8E4D0"} fontSize="16" fontWeight="800">
-                {isGround ? "L" : `F${floorNum}`}
+              {/* Floor color band */}
+              <rect x={bx+1} y={fy+1} width={bodyW-2} height={floorH-1} fill={bandColor + "20"} />
+              <line x1={bx} y1={fy} x2={bx+bodyW} y2={fy} stroke={OL} strokeWidth="0.6" opacity="0.4" />
+
+              {/* Floor label (compact, inside building left edge) */}
+              <rect x={bx+4} y={fy+floorH/2-11} width={floorLblW-10} height={22} rx="4"
+                fill={bandColor + "50"} stroke={bandColor} strokeWidth="1.5" />
+              <text x={bx+floorLblW/2} y={fy+floorH/2+4} textAnchor="middle"
+                fill={bandColor} fontSize="11" fontWeight="800">
+                {isLobby ? "LBY" : isTop ? `PH/${floorNum}` : floorLabel(floorNum)}
               </text>
+
+              {/* Unit windows */}
               {floorUnits.map((u, ui) => {
                 const vis = filteredIds.has(u.id);
                 let color;
@@ -310,173 +334,169 @@ const UnitGrid = ({ units, onSelect, selectedId, tradeFilter, commonAreas, setCo
                 else color = getUnitColor(u);
                 const hasAcc = Object.values(u.trades).some(t => t.accessDenied && t.scheduled);
                 const sel = selectedId === u.id;
-                const ux = bx + 48 + ui * (uW + pad);
-                const uy = fy + pad;
+                const ux = bx + floorLblW + 4 + ui * (uW + 6);
+                const uy = fy + 10;
                 return (<g key={u.id} onClick={() => onSelect(u)} style={{ cursor: "pointer" }}>
-                  <rect x={ux} y={uy} width={uW} height={uH} rx="2"
-                    fill={vis ? color : "#08080F"} stroke={sel ? "#FFF" : OL}
-                    strokeWidth={sel ? "3" : "1.5"} opacity={vis ? 1 : 0.12} />
+                  <rect x={ux} y={uy} width={uW} height={uH} rx="3"
+                    fill={vis ? color : "#111827"} stroke={sel ? "#FFF" : OL}
+                    strokeWidth={sel ? "3" : "1.2"} opacity={vis ? 1 : 0.1} />
                   {vis && <>
-                    <line x1={ux+uW/2} y1={uy} x2={ux+uW/2} y2={uy+uH} stroke={OL} strokeWidth="0.6" opacity="0.35" />
-                    <line x1={ux} y1={uy+uH/2} x2={ux+uW} y2={uy+uH/2} stroke={OL} strokeWidth="0.6" opacity="0.35" />
+                    <line x1={ux+uW/2} y1={uy} x2={ux+uW/2} y2={uy+uH} stroke={OL} strokeWidth="0.5" opacity="0.25" />
+                    <line x1={ux} y1={uy+uH/2} x2={ux+uW} y2={uy+uH/2} stroke={OL} strokeWidth="0.5" opacity="0.25" />
                   </>}
-                  <rect x={ux-2} y={uy+uH} width={uW+4} height={3} rx="1" fill={OL} opacity="0.25" />
                   <text x={ux+uW/2} y={uy+uH/2+4} textAnchor="middle"
                     fill={vis ? (color==="#FFFFFF"||color==="#F1C40F"?"#000":"#FFF") : "#222"}
-                    fontSize="12" fontWeight="700" opacity={vis?1:0.15}>
-                    {u.unit}
-                  </text>
-                  {hasAcc && vis && <circle cx={ux+uW-5} cy={uy+5} r="5" fill="#E74C3C" stroke={WALL} strokeWidth="1" />}
+                    fontSize="11" fontWeight="700" opacity={vis?1:0.15}>{u.unit}</text>
+                  {hasAcc && vis && <circle cx={ux+uW-4} cy={uy+4} r="4" fill="#E74C3C" stroke={WALL} strokeWidth="1" />}
+                </g>);
+              })}
+
+              {/* Elevator cars on this floor (show on lobby floor) */}
+              {isLobby && showAreas?.elev !== false && cars.map((car, ci) => {
+                const cx = bx + floorLblW + unitsRowW + 4 + ci * 48;
+                const cy = fy + 8;
+                const key = `elev-${car}`;
+                const statusCol = getCAColor("elev", car);
+                return (<g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
+                  <rect x={cx} y={cy} width={44} height={uH} rx="5"
+                    fill={elevColors[ci] || "#888"} stroke="#FFF" strokeWidth="2.5" />
+                  <text x={cx+22} y={cy+uH/2+6} textAnchor="middle" fill="#FFF" fontSize="20" fontWeight="900">{ci+1}</text>
+                  <circle cx={cx+38} cy={cy+6} r="6" fill={statusCol} stroke={statusCol==="#FFFFFF"?"#999":"#FFF"} strokeWidth="1.5" />
                 </g>);
               })}
             </g>);
           })}
 
           {/* ═══ GROUND LINE ═══ */}
-          <line x1={0} y1={by+bodyH+stepsH-5} x2={totalW} y2={by+bodyH+stepsH-5} stroke={AG} strokeWidth="2.5" />
-          {Array.from({length:10}).map((_,i) => (
-            <line key={i} x1={i*14} y1={by+bodyH+stepsH-5} x2={i*14-8} y2={by+bodyH+stepsH+5} stroke={OL} strokeWidth="0.6" opacity="0.2" />
-          ))}
+          <line x1={0} y1={by+bodyH+lobbyH} x2={totalW} y2={by+bodyH+lobbyH} stroke={AG} strokeWidth="3" />
 
-          {/* ═══ ENTRANCE + STOOP ═══ */}
+          {/* ═══ MAIN ENTRANCE LOBBY ═══ */}
           {(() => {
-            const ey = by + bodyH;
-            const cx = bx + bodyW/2;
+            const ly = by + bodyH;
             return (<g>
-              <rect x={bx} y={ey} width={bodyW} height={stepsH} fill={WALL} stroke={OL} strokeWidth="3" />
-              <rect x={cx-25} y={ey+6} width={50} height={stepsH-6} rx="2" fill={DARK} stroke={OL} strokeWidth="1.2" />
-              <rect x={cx-20} y={ey+10} width={18} height={34} rx="1" fill="none" stroke={OL} strokeWidth="0.6" opacity="0.5" />
-              <rect x={cx+2} y={ey+10} width={18} height={34} rx="1" fill="none" stroke={OL} strokeWidth="0.6" opacity="0.5" />
-              <circle cx={cx-4} cy={ey+30} r="2" fill={PK} />
-              <circle cx={cx+4} cy={ey+30} r="2" fill={PK} />
-              {[0,1,2].map(i => (
-                <rect key={i} x={cx-30-i*7} y={ey+stepsH-14+i*5} width={60+i*14} height={4} fill={WALL} stroke={OL} strokeWidth="0.8" />
-              ))}
-              <line x1={cx-28} y1={ey+12} x2={cx-28} y2={ey+stepsH} stroke={OL} strokeWidth="1.5" />
-              <line x1={cx+28} y1={ey+12} x2={cx+28} y2={ey+stepsH} stroke={OL} strokeWidth="1.5" />
-              <text x={cx} y={ey+stepsH+14} textAnchor="middle" fill={TXT2} fontSize="8" fontWeight="600" letterSpacing="2">MAIN ENTRANCE</text>
+              <rect x={bx} y={ly} width={bodyW} height={lobbyH} fill="#4ADE8012" stroke={OL} strokeWidth="2.5" />
+
+              {/* Front door - glass double doors with transom */}
+              {(() => {
+                const doorX = bx + bodyW * 0.28;
+                const doorW = bodyW * 0.3;
+                return (<g>
+                  {/* Transom (above doors) */}
+                  <rect x={doorX} y={ly+4} width={doorW} height={12} rx="2" fill="#D1FAE520" stroke={OL} strokeWidth="1" />
+                  {[0.25,0.5,0.75].map((p,i) => <line key={i} x1={doorX+doorW*p} y1={ly+4} x2={doorX+doorW*p} y2={ly+16} stroke={OL} strokeWidth="0.5" opacity="0.4" />)}
+                  {/* Main doors */}
+                  <rect x={doorX} y={ly+16} width={doorW} height={lobbyH-20} rx="2" fill="#D1FAE518" stroke={OL} strokeWidth="1.5" />
+                  {/* Center split */}
+                  <line x1={doorX+doorW/2} y1={ly+16} x2={doorX+doorW/2} y2={ly+lobbyH-4} stroke={OL} strokeWidth="1.5" />
+                  {/* Door panels (4 glass panels) */}
+                  {[0.08,0.3,0.55,0.77].map((p,i) => <rect key={i} x={doorX+doorW*p} y={ly+20} width={doorW*0.15} height={lobbyH-30} rx="1" fill="#D1FAE510" stroke={OL} strokeWidth="0.5" opacity="0.5" />)}
+                  {/* Door handles */}
+                  <circle cx={doorX+doorW/2-6} cy={ly+lobbyH/2+8} r="2" fill={PK} />
+                  <circle cx={doorX+doorW/2+6} cy={ly+lobbyH/2+8} r="2" fill={PK} />
+                  {/* Steps */}
+                  {[0,1,2].map(i => <rect key={i} x={doorX-4-i*5} y={ly+lobbyH-8+i*4} width={doorW+8+i*10} height={3} fill={WALL} stroke={OL} strokeWidth="0.6" />)}
+                </g>);
+              })()}
+
+              {/* MAIN ENTRANCE LOBBY text */}
+              <text x={bx+bodyW*0.43} y={ly+lobbyH/2+2} textAnchor="middle" fill={AG} fontSize="9" fontWeight="700" letterSpacing="1.5">MAIN ENTRANCE LOBBY</text>
+
+              {/* Mailroom (right side) */}
+              <rect x={bx+bodyW*0.72} y={ly+4} width={bodyW*0.22} height={lobbyH-8} rx="4" fill="#FDE68A15" stroke="#FDE68A" strokeWidth="1.5" />
+              <text x={bx+bodyW*0.83} y={ly+lobbyH/2-4} textAnchor="middle" fill="#FDE68A" fontSize="9" fontWeight="700">MAILROOM</text>
+              {/* Mail slots visualization */}
+              {[0,1,2].map(r => [0,1,2,3].map(c => <rect key={`${r}${c}`} x={bx+bodyW*0.74+c*12} y={ly+lobbyH/2+4+r*8} width={10} height={6} rx="1" fill="#FDE68A10" stroke="#FDE68A40" strokeWidth="0.5" />))}
+
+              {/* Planters */}
+              {[bodyW*0.2, bodyW*0.62].map((px,i) => (<g key={i}>
+                <rect x={bx+px} y={ly+lobbyH-16} width={16} height={14} rx="3" fill="#4ADE8030" stroke="#4ADE80" strokeWidth="1" />
+                <circle cx={bx+px+8} cy={ly+lobbyH-18} r="6" fill="#4ADE8020" stroke="#4ADE80" strokeWidth="0.5" />
+              </g>))}
+
+              {/* Lobby floor label */}
+              <rect x={bx+4} y={ly+lobbyH/2-11} width={floorLblW-10} height={22} rx="4" fill="#4ADE8050" stroke="#4ADE80" strokeWidth="1.5" />
+              <text x={bx+floorLblW/2} y={ly+lobbyH/2+4} textAnchor="middle" fill="#4ADE80" fontSize="11" fontWeight="800">LBY</text>
             </g>);
           })()}
 
           {/* ═══ BASEMENT ═══ */}
-          {(() => {
-            const by2 = by + bodyH + stepsH;
-            const bw = bodyW + elevW;
+          {showAreas?.base !== false && (() => {
+            const bsy = by + bodyH + lobbyH;
+            const rooms = caItems("base");
+            const roomW = rooms.length > 0 ? (bodyW - elevShaftW - 4) / rooms.length : bodyW;
+            const roomColors = ["#F87171","#FB923C","#4ADE80","#60A5FA","#A78BFA","#FBBF24"];
             return (<g>
-              <rect x={bx} y={by2} width={bw} height={bsmtH} fill={DARK} stroke={OL} strokeWidth="2.5" strokeDasharray="5,3" />
-              <line x1={bx-8} y1={by2} x2={bx-8} y2={by2+bsmtH+12} stroke={OL} strokeWidth="2.5" />
-              <line x1={bx+bw+8} y1={by2} x2={bx+bw+8} y2={by2+bsmtH+12} stroke={OL} strokeWidth="2.5" />
-              <rect x={bx-12} y={by2+bsmtH} width={bw+24} height={12} fill={WALL} stroke={OL} strokeWidth="2" />
-              <line x1={bx+bw/2+20} y1={by2} x2={bx+bw/2+20} y2={by2+bsmtH} stroke={OL} strokeWidth="1" />
-              <text x={bx+bw/4+10} y={by2+24} textAnchor="middle" fill={PK} fontSize="11" fontWeight="700">BOILER</text>
-              <text x={bx+bw/4+10} y={by2+38} textAnchor="middle" fill={PK} fontSize="11" fontWeight="700">ROOM</text>
-              <rect x={bx+22} y={by2+48} width={28} height={34} rx="2" fill={AG+"20"} stroke={AG} strokeWidth="0.8" />
-              <rect x={bx+26} y={by2+42} width={6} height={10} fill={AG+"30"} stroke={AG} strokeWidth="0.5" />
-              <line x1={bx+50} y1={by2+58} x2={bx+80} y2={by2+58} stroke={OL} strokeWidth="0.8" />
-              <line x1={bx+50} y1={by2+68} x2={bx+80} y2={by2+68} stroke={OL} strokeWidth="0.8" />
-              <text x={bx+bw*3/4+10} y={by2+24} textAnchor="middle" fill={PK} fontSize="11" fontWeight="700">ELEVATOR</text>
-              <text x={bx+bw*3/4+10} y={by2+38} textAnchor="middle" fill={PK} fontSize="11" fontWeight="700">ROOM</text>
-              <rect x={bx+bw*3/4-5} y={by2+50} width={32} height={22} rx="2" fill={AG+"15"} stroke={AG+"40"} strokeWidth="0.8" />
-              <rect x={bx+bodyW+10} y={by2+42} width={elevW-20} height={44} rx="2" fill={AG+"10"} stroke={OL} strokeWidth="0.8" />
-              <text x={bx+bw/2} y={by2+bsmtH+22} textAnchor="middle" fill={TXT2} fontSize="8" letterSpacing="3" opacity="0.5">▼ BELOW GRADE ▼</text>
+              <rect x={bx} y={bsy} width={bodyW} height={bsmtH} fill="#1F293780" stroke={OL} strokeWidth="2.5" strokeDasharray="6,3" />
+              {/* Foundation walls */}
+              <line x1={bx-6} y1={bsy} x2={bx-6} y2={bsy+bsmtH+10} stroke={OL} strokeWidth="2" />
+              <line x1={bx+bodyW+6} y1={bsy} x2={bx+bodyW+6} y2={bsy+bsmtH+10} stroke={OL} strokeWidth="2" />
+              <rect x={bx-10} y={bsy+bsmtH} width={bodyW+20} height={10} fill={WALL} stroke={OL} strokeWidth="1.5" />
+
+              {rooms.map((room, i) => {
+                const key = `base-${room}`;
+                const rc = roomColors[i % roomColors.length];
+                const statusCol = getCAColor("base", room);
+                const rx = bx + 3 + i * roomW;
+                return (<g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
+                  <rect x={rx} y={bsy+4} width={roomW-6} height={bsmtH-8} rx="5" fill={rc+"25"} stroke={rc} strokeWidth="2" />
+                  <text x={rx+(roomW-6)/2} y={bsy+bsmtH/2-2} textAnchor="middle" fill={rc} fontSize="10" fontWeight="800">{room}</text>
+                  <circle cx={rx+roomW-14} cy={bsy+12} r="6" fill={statusCol} stroke={statusCol==="#FFFFFF"?"#999":rc} strokeWidth="1.5" />
+                </g>);
+              })}
+
+              {/* Label */}
+              <text x={bx+bodyW/2} y={bsy+bsmtH+20} textAnchor="middle" fill="#F87171" fontSize="9" fontWeight="700" letterSpacing="2">BASEMENT LEVEL (BELOW GRADE)</text>
             </g>);
           })()}
 
-          {/* ═══ COMMON AREA ITEMS ON ROOF (Gold/Amber) ═══ */}
+          {/* ═══ GROUNDS ═══ */}
+          {showAreas?.grnd !== false && caItems("grnd").length > 0 && (() => {
+            const gy = by + bodyH + lobbyH + bsmtH + 28;
+            const items = caItems("grnd");
+            const gw = bodyW / items.length;
+            return items.map((item, i) => {
+              const key = `grnd-${item}`;
+              const statusCol = getCAColor("grnd", item);
+              return (<g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
+                <rect x={bx+i*gw+2} y={gy} width={gw-4} height={22} rx="4" fill="#C084FC20" stroke="#C084FC" strokeWidth="1.5" />
+                <circle cx={bx+i*gw+14} cy={gy+11} r="4.5" fill={statusCol} stroke={statusCol==="#FFFFFF"?"#999":"#C084FC"} strokeWidth="1" />
+                <text x={bx+i*gw+gw/2+6} y={gy+15} textAnchor="middle" fill="#C084FC" fontSize="9" fontWeight="700">{item}</text>
+              </g>);
+            });
+          })()}
+
+          {/* ═══ ROOF COMMON AREA ITEMS ═══ */}
           {showAreas?.roof !== false && caItems("roof").map((item, i) => {
             const key = `roof-${item}`;
             const statusCol = getCAColor("roof", item);
-            const areaCol = "#FFD700";
-            const rx = bx + 8 + i * 95;
-            const ry = by - parapetH - bulkH - 28;
-            return (
-              <g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
-                <rect x={rx} y={ry} width={90} height={24} rx="4" fill={areaCol + "25"} stroke={areaCol} strokeWidth="2" />
-                <circle cx={rx+12} cy={ry+12} r="5" fill={statusCol} stroke={statusCol === "#FFFFFF" ? "#999" : statusCol} strokeWidth="0.5" />
-                <text x={rx+50} y={ry+15} textAnchor="middle" fill={areaCol} fontSize="10" fontWeight="700">{item}</text>
-              </g>
-            );
-          })}
-
-          {/* ═══ COMMON AREA ITEMS IN ELEVATOR SHAFT (Cyan/Teal) ═══ */}
-          {showAreas?.elev !== false && caItems("elev").map((item, i) => {
-            const key = `elev-${item}`;
-            const statusCol = getCAColor("elev", item);
-            const areaCol = "#00BCD4";
-            const ey2 = by + 8 + i * 30;
-            return (
-              <g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
-                <rect x={bx+bodyW+4} y={ey2} width={elevW-8} height={24} rx="4" fill={areaCol + "25"} stroke={areaCol} strokeWidth="2" />
-                <circle cx={bx+bodyW+16} cy={ey2+12} r="5" fill={statusCol} stroke={statusCol === "#FFFFFF" ? "#999" : statusCol} strokeWidth="0.5" />
-                <text x={bx+bodyW+elevW/2+4} y={ey2+15} textAnchor="middle" fill={areaCol} fontSize="9" fontWeight="700">{item}</text>
-              </g>
-            );
-          })}
-
-          {/* ═══ COMMON AREA ITEMS IN BASEMENT (Orange) ═══ */}
-          {showAreas?.base !== false && caItems("base").map((item, i) => {
-            const key = `base-${item}`;
-            const statusCol = getCAColor("base", item);
-            const areaCol = "#FF9800";
-            const bsy = by + bodyH + stepsH;
-            const bsx = bx + 8 + i * 90;
-            return (
-              <g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
-                <rect x={bsx} y={bsy+bsmtH-30} width={85} height={24} rx="4" fill={areaCol + "25"} stroke={areaCol} strokeWidth="2" />
-                <circle cx={bsx+12} cy={bsy+bsmtH-18} r="5" fill={statusCol} stroke={statusCol === "#FFFFFF" ? "#999" : statusCol} strokeWidth="0.5" />
-                <text x={bsx+50} y={bsy+bsmtH-15} textAnchor="middle" fill={areaCol} fontSize="10" fontWeight="700">{item}</text>
-              </g>
-            );
+            const rx = bx + 8 + i * 90;
+            const ry = by - 28;
+            return (<g key={key} onClick={() => setEditingCA(key)} style={{ cursor: "pointer" }}>
+              <rect x={rx} y={ry} width={85} height={18} rx="4" fill="#FFD70025" stroke="#FFD700" strokeWidth="1.5" />
+              <circle cx={rx+12} cy={ry+9} r="4.5" fill={statusCol} stroke={statusCol==="#FFFFFF"?"#999":"#FFD700"} strokeWidth="1" />
+              <text x={rx+50} y={ry+13} textAnchor="middle" fill="#FFD700" fontSize="8" fontWeight="700">{item}</text>
+            </g>);
           })}
 
         </svg>
       </div>
-
-      {/* ═══ GROUNDS SECTION (Purple/Violet) ═══ */}
-      {showAreas?.grnd !== false && caItems("grnd").length > 0 && (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "10px 16px", background: "#9C27B0" + "12", border: `2px solid #9C27B0`, borderRadius: 8 }}>
-            <span style={{ fontFamily: font, fontSize: 13, color: "#CE93D8", fontWeight: 700, alignSelf: "center", marginRight: 6 }}>🌳 GROUNDS:</span>
-            {caItems("grnd").map(item => {
-              const key = `grnd-${item}`;
-              const statusCol = getCAColor("grnd", item);
-              return (
-                <button key={key} onClick={() => setEditingCA(key)}
-                  style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, fontFamily: font, fontWeight: 700,
-                    background: "#9C27B0" + "20", color: "#CE93D8", border: `2px solid #9C27B0`,
-                    cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: statusCol, display: "inline-block",
-                    border: statusCol === "#FFFFFF" ? "1px solid #999" : "none" }} />
-                  {item}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ═══ COMMON AREA EDIT POPUP ═══ */}
       {editingCA && (
         <div style={S.modal} onClick={() => setEditingCA(null)}>
           <div style={{ ...S.modalInner, maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ fontFamily: font, color: PK, margin: 0, fontSize: 16 }}>{editingCA.replace("-", " → ")}</h3>
-              <button style={S.btn()} onClick={() => setEditingCA(null)}>✕</button>
+              <h3 style={{ fontFamily: font, color: PK, margin: 0, fontSize: 16 }}>{editingCA.replace("-", " \u2192 ")}</h3>
+              <button style={S.btn()} onClick={() => setEditingCA(null)}>{"\u2715"}</button>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={S.label}>Status (click to change)</label>
+              <label style={S.label}>Status</label>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {["Pending","Started","In Progress","Complete"].map(st => {
                   const active = (commonAreas[editingCA]?.status || "Pending") === st;
-                  return (
-                    <button key={st} style={{
-                      ...S.btn(active ? "primary" : undefined), fontSize: 12, padding: "8px 14px",
-                      background: active ? getTradeColor(st) : undefined,
-                      color: active ? (st === "Pending" || st === "In Progress" ? "#000" : "#FFF") : undefined,
-                    }} onClick={() => setCommonAreas({ ...commonAreas, [editingCA]: { ...commonAreas[editingCA], status: st, trades: commonAreas[editingCA]?.trades || {} } })}>
-                      {st}
-                    </button>
-                  );
+                  return (<button key={st} style={{...S.btn(active?"primary":undefined),fontSize:12,padding:"8px 14px",
+                    background:active?getTradeColor(st):undefined,color:active?(st==="Pending"||st==="In Progress"?"#000":"#FFF"):undefined}}
+                    onClick={() => setCommonAreas({...commonAreas,[editingCA]:{...commonAreas[editingCA],status:st,trades:commonAreas[editingCA]?.trades||{}}})}>{st}</button>);
                 })}
               </div>
             </div>
@@ -485,13 +505,10 @@ const UnitGrid = ({ units, onSelect, selectedId, tradeFilter, commonAreas, setCo
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {TRADES.map(t => {
                   const on = commonAreas[editingCA]?.trades?.[t];
-                  return (
-                    <button key={t} style={{ ...S.btn(on ? "primary" : undefined), fontSize: 10, padding: "4px 8px" }}
-                      onClick={() => {
-                        const cur = commonAreas[editingCA] || { trades: {}, status: "Pending" };
-                        setCommonAreas({ ...commonAreas, [editingCA]: { ...cur, trades: { ...cur.trades, [t]: !on } } });
-                      }}>{on ? "✓ " : ""}{t}</button>
-                  );
+                  return (<button key={t} style={{...S.btn(on?"primary":undefined),fontSize:10,padding:"4px 8px"}}
+                    onClick={() => {const cur=commonAreas[editingCA]||{trades:{},status:"Pending"};
+                      setCommonAreas({...commonAreas,[editingCA]:{...cur,trades:{...cur.trades,[t]:!on}}});
+                    }}>{on?"\u2713 ":""}{t}</button>);
                 })}
               </div>
             </div>
@@ -502,7 +519,6 @@ const UnitGrid = ({ units, onSelect, selectedId, tradeFilter, commonAreas, setCo
     </div>
   );
 };
-
 // ▸ Unit Detail Modal
 const UnitModal = ({ unit, onClose, onUpdate }) => {
   const [tab, setTab] = useState("info");
