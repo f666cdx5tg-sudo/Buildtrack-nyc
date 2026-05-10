@@ -13,13 +13,21 @@
         /* PRINT STYLES - Professional Formatting for Notices */
         @media print {
             body { background: white !important; color: black !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }
-            #root > div > div:first-child, .sidebar, button, select, input, .no-print { display: none !important; }
+            header, .sidebar, button, select, input, .no-print, nav, .nav-container { display: none !important; }
             .modal-inner { position: static !important; width: 100% !important; border: none !important; padding: 0 !important; background: white !important; box-shadow: none !important; }
             .print-header { display: block !important; margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 10px; text-align: center; }
             .notice-content { font-size: 14pt !important; line-height: 1.6 !important; margin-top: 20px; }
-            .tag { border: 1px solid #000 !important; color: #000 !important; background: transparent !important; }
+            .unit-label-print { font-size: 24pt !important; font-weight: bold !important; color: black !important; }
         }
         .print-header { display: none; }
+
+        /* UI Colors */
+        :root {
+            --ag: #FADA5E;
+            --pk: #FF69B4;
+            --bg2: #12121A;
+            --bd: #2D2D3D;
+        }
     </style>
 </head>
 <body>
@@ -31,11 +39,8 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        /* --- DATA & CONSTANTS --- */
         const TRADES = ["Plumbing","Carpentry","Windows","Electrical","Painting","Heating","Cooling","Tiling","Minor Repairs","Major Repairs"];
-        const PHASES = ["Pending","Demolition","Rough-In","Installation","Finishing","Inspection","Complete"];
-        const STATUS_COLORS = { "Pending":"#FFFFFF", "Started":"#E74C3C", "In Progress":"#F1C40F", "Complete":"#27AE60", "Vacant":"#FF8C00" };
-
+        
         const generateUnits = (floors, perFloor, format) => {
             const units = [];
             for (let i = 0; i < (floors * perFloor); i++) {
@@ -44,7 +49,7 @@
                 let unitLabel = format === "alpha" ? `${floorNum}${String.fromCharCode(65 + pos)}` : `${floorNum}${String(pos + 1).padStart(2, "0")}`;
                 const trades = {};
                 TRADES.forEach(t => {
-                    trades[t] = { status: "Pending", phase: "Pending", contractor: "", scheduled: false, accessDenied: false };
+                    trades[t] = { status: "Pending", phase: "Pending", scheduled: false, accessDenied: false };
                 });
                 units.push({
                     id: i + 1, unit: unitLabel, floor: floorNum, vacant: false,
@@ -55,39 +60,86 @@
             return units;
         };
 
-        /* --- APP COMPONENT --- */
         function App() {
             const [units, setUnits] = useState(() => {
-                const saved = localStorage.getItem('buildtrack_units');
+                const saved = localStorage.getItem('bt_nyc_units');
                 return saved ? JSON.parse(saved) : generateUnits(5, 8, "alpha");
             });
 
             const [commonAreas, setCommonAreas] = useState(() => {
-                const saved = localStorage.getItem('buildtrack_common');
+                const saved = localStorage.getItem('bt_nyc_common');
                 return saved ? JSON.parse(saved) : {};
             });
 
+            const [page, setPage] = useState("dashboard");
+
             useEffect(() => {
-                localStorage.setItem('buildtrack_units', JSON.stringify(units));
-                localStorage.setItem('buildtrack_common', JSON.stringify(commonAreas));
+                localStorage.setItem('bt_nyc_units', JSON.stringify(units));
+                localStorage.setItem('bt_nyc_common', JSON.stringify(commonAreas));
             }, [units, commonAreas]);
 
             return (
                 <div style={{display: 'flex', flexDirection: 'column', minHeight: '100vh'}}>
                     <div className="print-header">
-                        <h1 style={{fontSize: '24pt', fontWeight: 'bold'}}>STM PRO BUILD - OFFICIAL NOTICE</h1>
-                        <p style={{fontSize: '14pt'}}>Project: 456 Grand Ave — Full Building Renovation</p>
+                        <h1 style={{fontSize: '28pt', fontWeight: 'bold'}}>STM PRO BUILD</h1>
+                        <h2 style={{fontSize: '18pt'}}>OFFICIAL CONSTRUCTION NOTICE</h2>
+                        <p>Project: 456 Grand Ave, Harlem, NY</p>
                     </div>
-                    
-                    <header style={{background: '#0D0D1A', borderBottom: '3px solid #FF69B4', padding: '20px', textAlign: 'center'}}>
-                        <h1 style={{color: '#FADA5E', margin: 0}}>BUILDTRACK <span style={{color: '#FF69B4'}}>NYC</span></h1>
-                        <p style={{color: '#E8E4D0'}}>456 Grand Ave — Full Building Renovation</p>
+
+                    <header style={{background: '#0D0D1A', borderBottom: '3px solid #FF69B4', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
+                            <div style={{width: '180px'}} dangerouslySetInnerHTML={{ __html: '<svg width="180" height="50" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">  <defs>    <linearGradient id="metal" x1="0%" y1="0%" x2="0%" y2="100%">      <stop offset="0%" style="stop-color:#8A8A9A;stop-opacity:1" />      <stop offset="50%" style="stop-color:#2D2D3D;stop-opacity:1" />      <stop offset="100%" style="stop-color:#0A0A0E;stop-opacity:1" />    </linearGradient>  </defs>  <rect x="0" y="0" width="200" height="60" rx="4" fill="url(#metal)" />  <text x="100" y="25" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="800" font-size="22" fill="#FADA5E" letter-spacing="2">BUILD</text>  <text x="100" y="52" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="800" font-size="22" fill="#FF69B4" letter-spacing="2">TRACK</text>  <circle cx="15" cy="15" r="3" fill="#8A8A9A" />  <circle cx="15" cy="30" r="3" fill="#8A8A9A" />  <circle cx="15" cy="45" r="3" fill="#8A8A9A" /></svg>' }} />
+                            <div>
+                                <h1 style={{color: '#FADA5E', margin: 0, fontSize: '18px', letterSpacing: '2px'}}>STM PRO BUILD</h1>
+                                <p style={{color: '#8A8A9A', fontSize: '12px'}}>456 Grand Ave — Full Building Renovation</p>
+                            </div>
+                        </div>
+                        <div style={{textAlign: 'right'}} className="no-print">
+                            <div style={{color: '#FADA5E', fontSize: '20px', fontWeight: 'bold'}}>{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                            <div style={{color: '#FFF', fontSize: '12px'}}>{new Date().toLocaleDateString()}</div>
+                        </div>
                     </header>
 
-                    <main style={{flex: 1, padding: '20px', textAlign: 'center'}}>
-                        <p>Dashboard is active. Your data is being saved locally.</p>
-                        <button onClick={() => window.print()} style={{padding: '10px 20px', background: '#FADA5E', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold'}}>Test Print Notice</button>
-                    </main>
+                    <div style={{display: 'flex', flex: 1}}>
+                        <nav style={{width: '220px', background: '#12121A', borderRight: '1px solid #2D2D3D', padding: '20px'}} className="no-print">
+                            <button onClick={() => setPage('dashboard')} style={{width: '100%', padding: '12px', marginBottom: '10px', background: page==='dashboard'?'#FADA5E':'transparent', color: page==='dashboard'?'#000':'#FFF', border: '1px solid #FADA5E', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}}>🏢 Dashboard</button>
+                            <button onClick={() => setPage('notices')} style={{width: '100%', padding: '12px', background: page==='notices'?'#FADA5E':'transparent', color: page==='notices'?'#000':'#FFF', border: '1px solid #FADA5E', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}}>📋 Notices</button>
+                            <div style={{marginTop: '40px', padding: '10px', borderTop: '1px solid #2D2D3D'}}>
+                                <p style={{fontSize: '10px', color: '#8A8A9A'}}>STATUS: <span style={{color: '#4ADE80'}}>● ONLINE</span></p>
+                                <p style={{fontSize: '10px', color: '#8A8A9A', marginTop: '5px'}}>DATA SAVED LOCALLY</p>
+                            </div>
+                        </nav>
+
+                        <main style={{flex: 1, padding: '30px', overflowY: 'auto'}}>
+                            {page === "dashboard" ? (
+                                <div>
+                                    <h2 style={{color: '#FF69B4', marginBottom: '20px', letterSpacing: '1px'}}>BUILDING GRID OVERVIEW</h2>
+                                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: '8px'}}>
+                                        {units.map(u => (
+                                            <div key={u.id} style={{padding: '15px 5px', background: '#1A1A24', textAlign: 'center', borderRadius: '6px', border: '1px solid #2D2D3D', cursor: 'pointer', transition: 'transform 0.1s'}}>
+                                                <div style={{fontSize: '14px', fontWeight: 'bold', color: '#FADA5E'}}>{u.unit}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="modal-inner">
+                                    <h2 style={{color: '#FF69B4', borderBottom: '1px solid #2D2D3D', paddingBottom: '10px'}} className="no-print">OFFICIAL NOTICE GENERATOR</h2>
+                                    <div style={{marginTop: '25px', background: '#12121A', padding: '30px', borderRadius: '12px', border: '1px solid #2D2D3D'}} className="no-print">
+                                        <div style={{marginBottom: '20px'}}>
+                                            <label style={{display: 'block', marginBottom: '8px', color: '#8A8A9A', fontSize: '12px', fontWeight: 'bold'}}>NOTICE BODY:</label>
+                                            <textarea style={{width: '100%', height: '150px', background: '#0A0A0E', color: '#FFF', border: '1px solid #2D2D3D', padding: '15px', borderRadius: '6px', fontSize: '14px', lineHeight: '1.5'}} 
+                                                      placeholder="Enter construction details here..." />
+                                        </div>
+                                        <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
+                                            <button onClick={() => window.print()} style={{padding: '12px 30px', background: '#FADA5E', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: '#000'}}>🖨️ Generate & Print Physical Notice</button>
+                                            <p style={{fontSize: '11px', color: '#8A8A9A'}}>Note: Printing will use the official STM PRO BUILD letterhead.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </main>
+                    </div>
                 </div>
             );
         }
